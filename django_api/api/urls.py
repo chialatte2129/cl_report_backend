@@ -37,8 +37,6 @@ urlpatterns = [
     url('v1/list_account',account.API_VUE_ListAccounts.as_view()),
     url('v1/save_account',account.API_VUE_SaveAccount.as_view()),
     url('v1/delete_account',account.API_VUE_DeleteAccount.as_view()),
-
-    url('v1/sync_odoo_account',account.API_VUE_SyncOdooAccount.as_view()),
     
     ###role
     url('v1/list_role',role.API_VUE_ListRoles.as_view()),

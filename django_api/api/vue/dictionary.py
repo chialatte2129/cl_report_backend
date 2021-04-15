@@ -177,7 +177,8 @@ class API_VUE_DictionaryTree(View):
           dict_tree=[]
           self.db_connect(db_name)
           query_sql=f"""  
-               SELECT category,keystr,description,count(keystr) as count FROM dictionary_setting group by category,keystr,description                 
+               SELECT category,keystr,description,count(keystr) as count 
+               FROM dictionary_setting group by category,keystr,description                 
                """   
           try:
              # 执行SQL语句             

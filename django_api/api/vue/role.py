@@ -41,13 +41,13 @@ class API_VUE_ListRoles(View):
                     page_count=post_data['page_count']     
                     OFFSET=(page_count-1) * 10
                     LIMIT=10  #perpage
-                    roles = Role.objects.filter(role_id__contains=filter_role, description__contains=filter_description).values("role_id", "description", "menus_id","actions_id")
+                    roles = Role.objects.filter(role_id__contains=filter_role, description__contains=filter_description).values("role_id", "description", "menus_id")
                     total_rows=roles.count()
                     roles = list(roles[OFFSET:OFFSET+LIMIT])                                        
                     res={'msg_code':1,'msg':"success","msg_i18n":"",'data':roles,'total_rows':total_rows}
                     return JsonResponse(res)
                 else :  #list all roles 
-                    roles = list(Role.objects.all().values("role_id", "description", "menus_id","actions_id"))                                         
+                    roles = list(Role.objects.all().values("role_id", "description", "menus_id"))                                         
                     res={'msg_code':1,'msg':"success","msg_i18n":"",'data':roles,'total_rows':len(roles)}
                     return JsonResponse(res)    
             else :
@@ -107,7 +107,6 @@ class API_VUE_SaveRole(View):
             role_id=post_data['role_id']
             description=post_data['description']
             menus_id=post_data['menus_id']
-            actions_id=post_data['actions_id']
             token = Token.objects.get(key=token_id)            
             is_expire, token=token_expire_handler(token)
             if is_expire :            
@@ -117,8 +116,7 @@ class API_VUE_SaveRole(View):
                     if created:   #renew token every time login
                        #print(user,'old=',source_old_pass,'new=',source_new_pass)     .update(field=value)                                 
                        roleObj.description=description        
-                       roleObj.menus_id=menus_id 
-                       roleObj.actions_id=actions_id                     
+                       roleObj.menus_id=menus_id                  
                        roleObj.save()              
                        res={'msg_code':1,'msg':"role saved","msg_i18n":"role.saved"}
                        return JsonResponse(res)
@@ -130,8 +128,7 @@ class API_VUE_SaveRole(View):
                     if roleObj is not None:   #renew token every time login
                        #print(user,'old=',source_old_pass,'new=',source_new_pass)     .update(field=value)                                 
                        roleObj.description=description        
-                       roleObj.menus_id=menus_id 
-                       roleObj.actions_id=actions_id                     
+                       roleObj.menus_id=menus_id                   
                        roleObj.save()              
                        res={'msg_code':1,'msg':"role saved","msg_i18n":"role.updated"}
                        return JsonResponse(res)

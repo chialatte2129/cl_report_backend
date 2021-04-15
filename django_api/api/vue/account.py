@@ -36,27 +36,6 @@ def get_client_ip(request):
     else:
         ip = request.META.get('REMOTE_ADDR')
     return ip
-
-def login_odoo(dbname,url,username,pwd):
-    # 登入odoo系統
-    sock_common = xmlrpclib.ServerProxy (f'{url}/xmlrpc/common')
-    uid = sock_common.login(dbname, username, pwd)
-    
-    if uid:
-        print("Successfully login")
-        print(uid)
-        # 取得odoo用戶基本資料
-        sock = xmlrpclib.ServerProxy(f'{url}/xmlrpc/object')
-        args = [('user_id', '=', uid)]
-        user_id = sock.execute(dbname, uid, pwd, 'hr.employee', 'search', args)
-        user_data = sock.execute(dbname, uid, pwd, 'hr.employee', 'read', user_id, ['name',"user_id","work_email"])[0]
-        print(user_data)
-        user_data["uid"] = uid
-        print("return")
-        return True,user_data
-    else:
-        print("Invalid User")
-        return False,{}
   
     
 class API_VUE_Login(View):
@@ -73,77 +52,58 @@ class API_VUE_Login(View):
             level1_pass=base64.urlsafe_b64decode(base64_pass.encode('ascii'))            
             source_pass=base64.urlsafe_b64decode(level1_pass.decode('ascii')).decode('ascii') 
 
-            # user = authenticate(username=post_data['username'], password=source_pass)
-            # print(user)
+            user = authenticate(username=post_data['username'], password=source_pass)
+            print(user)
 
-            # if user is not None:   #renew token every time login
-            #     roles_id=user.profile.roles_id                
-            #     roles=roles_id.split(",")
-            #     user_menus=[]
-            #     user_actions=[]
-            #     print('login user roles=',roles)
-            #     for role_id in roles :
-            #         roleObj = Role.objects.get(role_id=role_id)  
-            #         if roleObj is not None :
-            #            menus=roleObj.menus_id.split(",")
-            #            actions=roleObj.actions_id.split(",")
-            #            for menu in menus :
-            #                if menu not in user_menus :
-            #                   user_menus.append(menu)
-            #            for action in actions :
-            #                if action not in user_actions :
-            #                   user_actions.append(action) 
+            if user is not None:   #renew token every time login
+                roles_id=user.profile.roles_id                
+                roles=roles_id.split(",")
+                user_menus=[]
+                print('login user roles=',roles)
+                for role_id in roles :
+                    roleObj = Role.objects.get(role_id=role_id)  
+                    if roleObj is not None :
+                       menus=roleObj.menus_id.split(",")
+                       for menu in menus :
+                           if menu not in user_menus :
+                              user_menus.append(menu)
+                      
 
-            #     tk,created =Token.objects.get_or_create(user=user)
-            #     tk.delete()   #delete old
-            #     tk,created =Token.objects.get_or_create(user=user)                 
-            #     print(user.id,'token=',tk.key,datetime.utcnow(),'meuns=',user_menus,' actions=',user_actions)        
-            #     res={
-            #         'msg_code':1,
-            #         'msg':'success',
-            #         'data':{
-            #             'token':tk.key,
-            #             'username':user.username,
-            #             'account_id':user.id,
-            #             'user_full_name':user.get_full_name(),
-            #             'user_menus':user_menus,
-            #             'user_actions':user_actions,
-            #             'is_admin':user.is_superuser
-            #         }
-            #     }
+                tk,created =Token.objects.get_or_create(user=user)
+                tk.delete()   #delete old
+                tk,created =Token.objects.get_or_create(user=user)                 
+                print(user.id,'token=',tk.key,datetime.utcnow(),'meuns=',user_menus)        
+                res={
+                    'msg_code':1,
+                    'msg':'success',
+                    'data':{
+                        'token':tk.key,
+                        'username':user.username,
+                        'account_id':user.id,
+                        'user_full_name':user.get_full_name(),
+                        'user_menus':user_menus,
+                        'is_admin':user.is_superuser
+                    }
+                }
             
-            # else:
-            #    # No backend authenticated the credentials              
-            #     res={
-            #         'msg_code':0,
-            #         'msg':'user name or password is not correct',
-            #         'msg_i18n':'account.name_and_pass_not_match'
-            #     }
-
-            # res={
-            #     'msg_code':1,
-            #     'msg':'success',
-            #     'data':{
-            #         'token':tk.key,
-            #         'username':user.username,
-            #         'account_id':user.id,
-            #         'user_full_name':user.get_full_name(),
-            #         'user_menus':user_menus,
-            #         'user_actions':user_actions,
-            #         'is_admin':user.is_superuser
-            #     }
-            # }
+            else:
+               # No backend authenticated the credentials              
+                res={
+                    'msg_code':0,
+                    'msg':'user name or password is not correct',
+                    'msg_i18n':'account.name_and_pass_not_match'
+                }
 
             res={
                 'msg_code':1,
                 'msg':'success',
                 'data':{
-                    'token':"thisisexamplekey",
-                    'username':"admin",
-                    'account_id':1,
-                    'user_full_name':"Admin",
-                    'user_menus':["dictionary_setting"],
-                    'is_admin':1
+                    'token':tk.key,
+                    'username':user.username,
+                    'account_id':user.id,
+                    'user_full_name':user.get_full_name(),
+                    'user_menus':user_menus,
+                    'is_admin':user.is_superuser
                 }
             }
             return JsonResponse(res)
@@ -245,7 +205,7 @@ class API_VUE_ListAccounts(View):
                 users = users[OFFSET:OFFSET+LIMIT]              
                 users_data =[]
                 for user in users :                                      
-                    new_user={'username':user.username,'first_name':user.first_name,'last_name':user.last_name,'email':user.email,'roles_id':user.profile.roles_id,"info":user.profile.user_info,"is_odoo_user":user.profile.is_odoo_user}
+                    new_user={'username':user.username,'first_name':user.first_name,'last_name':user.last_name,'email':user.email,'roles_id':user.profile.roles_id,"info":user.profile.user_info}
                     users_data.append(new_user)
                 res={'msg_code':1,'msg':"password changed","msg_i18n":"account.new_pass_changed",'data':users_data,'total_rows':total_rows}
                 return JsonResponse(res)    
@@ -286,8 +246,6 @@ class API_VUE_SaveAccount(View):
                        level1_new_pass=base64.urlsafe_b64decode(new_pass.encode('ascii'))            
                        source_new_pass=base64.urlsafe_b64decode(level1_new_pass.decode('ascii')).decode('ascii')    
                        userObj.set_password(source_new_pass)
-                       userObj.profile.is_odoo_user=0 
-                       userObj.profile.odoo_user_id=0
                        userObj.profile.roles_id=roles_id   
                        userObj.profile.user_info=info   
                        userObj.email=email  
@@ -355,40 +313,4 @@ class API_VUE_DeleteAccount(View):
             return JsonResponse(res)
 
 
-class API_VUE_SyncOdooAccount(View):
-  
-    def __init__(self,*args,**kwargs) :
-        print('API_VUE_SyncOdooAccount load!')
-         
-    def post(self, request):    
-        try :
-            post_data=json.loads(request.body) 
-            odoo_conn = json.loads(models.DictionarySetting.objects.get(keystr="SYSTEM-odoo_connection").jsonvalue)
-            sock = xmlrpclib.ServerProxy(f'{odoo_conn["url"]}/xmlrpc/object')
-            employee_ids = sock.execute(odoo_conn["dbname"], post_data["uid"], post_data["pwd"], 'hr.employee', 'search', [])
-            employee_data = sock.execute(odoo_conn["dbname"], post_data["uid"], post_data["pwd"], 'hr.employee', 'read', employee_ids, ['name',"user_id","work_email"])
-            
-            user_ids = sock.execute(odoo_conn["dbname"], post_data["uid"], post_data["pwd"], 'res.users', 'search', [])
-            user_data = sock.execute(odoo_conn["dbname"], post_data["uid"], post_data["pwd"], 'res.users', 'read', user_ids, ['login',"id"])
-            user_map = { user["id"]:user for user in user_data}
-            print(employee_data)
-            for data in employee_data:
-                print(data)
-                print(user_map[data["user_id"][0]]["login"])
-                userObj, created = User.objects.get_or_create(username=user_map[data["user_id"][0]]["login"])               
-                print('created=',created)
-                if created:   #renew token every time login
-                    userObj.profile.is_odoo_user=1 
-                    userObj.profile.odoo_user_id=data["user_id"][0]
-                    userObj.profile.roles_id=["staff"]
-                    userObj.profile.user_info = data["name"]
-                    userObj.email = data["work_email"]
-                    userObj.last_name = data["name"]                          
-                    userObj.save()        
-                else :
-                    pass              
-            return JsonResponse({"msg_code":1,'msg':"success","msg_i18n":"success"})
-        except Exception as e:
-            res={'msg_code':-1,'msg':str(e),"msg_i18n":str(e)}
-            print(res) 
-            return JsonResponse(res)
+
