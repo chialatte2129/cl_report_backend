@@ -9,7 +9,6 @@ from django.db import models
 from django.core.validators import MinLengthValidator, RegexValidator
 from django.contrib.auth.models import User
 from django.db import models
-from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.db.models.fields.related import ManyToManyField
@@ -50,3 +49,74 @@ class DictionarySetting(models.Model):
     class Meta:
         managed = False
         db_table = 'dictionary_setting'
+
+class EquipCategories(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    name = models.CharField(max_length=255)
+    parent_id = models.BigIntegerField(blank=True, null=True)
+    whole_name = models.CharField(max_length=45)
+    created_at = models.DateTimeField(blank=True, null=True)
+    updated_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'equip_categories'
+
+
+class EquipHistories(models.Model):
+    id = models.BigIntegerField(primary_key=True)
+    equip_item = models.ForeignKey('EquipItems', models.DO_NOTHING)
+    user = models.ForeignKey(User, models.DO_NOTHING)
+    user_name = models.CharField(max_length=255)
+    org_status = models.CharField(max_length=45)
+    new_status = models.CharField(max_length=45)
+    description = models.TextField(blank=True, null=True)
+    recorded_at = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = 'equip_histories'
+
+
+class EquipImages(models.Model):
+    type = models.CharField(primary_key=True, max_length=45)
+    id = models.CharField(max_length=45)
+    name = models.CharField(max_length=200)
+    file_path = models.CharField(max_length=255, blank=True, null=True)
+    file_bytes_str = models.TextField()
+    created_at = models.CharField(max_length=20)
+
+    class Meta:
+        managed = False
+        db_table = 'equip_images'
+        unique_together = (('type', 'id'),)
+
+
+class EquipItems(models.Model):
+    id = models.CharField(primary_key=True, max_length=45)
+    equip = models.ForeignKey('Equipments', models.DO_NOTHING)
+    order = models.CharField(max_length=45)
+    status = models.CharField(max_length=45)
+    buy_date = models.DateField(blank=True, null=True)
+    end_date = models.DateField(blank=True, null=True)
+    last_user = models.ForeignKey(User, models.DO_NOTHING, blank=True, null=True)
+    last_lend_at = models.DateTimeField(blank=True, null=True)
+    last_return_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(blank=True, null=True)
+    updated_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'equip_items'
+
+
+class Equipments(models.Model):
+    id = models.CharField(primary_key=True, max_length=255)
+    name = models.CharField(max_length=255)
+    cate = models.ForeignKey(EquipCategories, models.DO_NOTHING)
+    created_at = models.DateTimeField(blank=True, null=True)
+    updated_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'equipments'

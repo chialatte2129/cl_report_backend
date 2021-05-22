@@ -26,6 +26,10 @@ Including another URLconf
 from django.urls import path
 from django.conf.urls import url, include
 from api.vue import account, role, dictionary
+from api.image_service import equip_image
+
+from api.equipment import equip_categories
+from api.equipment import equipment
 
 #路徑以"/版本/api名稱(小寫+底線)" 表示
 urlpatterns = [
@@ -49,6 +53,15 @@ urlpatterns = [
     url('v1/dict_tree',dictionary.API_VUE_DictionaryTree.as_view()),  
 
     url('hello',dictionary.API_VUE_Hello.as_view()),  
+
+    url('v1/equip/image',equip_image.API_CALL_View.as_view()),  
+    url('v1/equip/bytes_array/image',equip_image.ImageBytesArray.as_view()),  
+
+    url('v1/equip/categories/get_list',equip_categories.EquipCategoriesList.as_view()), 
+    url('v1/equip/categories/update',equip_categories.UpdateEquipCategory.as_view()), 
+
+    url('v1/equip/get_list',equipment.EquipmentsList.as_view()), 
+    url('v1/equip/update',equipment.UpdateEquipments.as_view()), 
 
 ]
 
