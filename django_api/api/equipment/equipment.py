@@ -51,9 +51,10 @@ class EquipmentsList(View):
             LEFT OUTER JOIN (SELECT equip_id,sum(is_lend) is_lend,sum(is_return) is_return,sum(is_broke) is_broke,count(equip_id) inhand FROM equip_items GROUP BY equip_id) S ON S.equip_id = E.id
             {where_condition}
             order by {data['sort_column']} {data['sort']}
+            limit {data['start_row']}, {data['page_size']};
         """
-        
-            # limit {data['start_row']}, {data['page_size']};
+        print(query)
+
         query_total = f"""
             SELECT count(*) 
             FROM equipments E
@@ -195,3 +196,89 @@ class UpdateEquipments(View):
             res = codeStatus(-1, msg=str(e))
         return JsonResponse(res)
 
+class EquipItemsList(View):
+    def __init__(self, *args, **kwargs):
+        print("run api : get Equipments list")
+
+   
+    def actionItems(self, data):
+        res = codeStatus(1, msg="")
+        equip_items = list(models.EquipItems.objects.filter(equip_id=data["id"]).values("id","equip_id","order","status","buy_date","end_date"))
+        res["equip_items"] = equip_items
+        return res
+
+    def post(self, request):
+        try:
+            data = json.loads(request.body)
+            status, err = checkDataParam(data, check_list=["action","id"])
+            if not status: return JsonResponse(codeStatus(0, msg=err))
+            try:
+                res = getattr(self, f"action{data['action'].title()}")(data)
+            except Exception as e:
+                print(str(e))
+                res = codeStatus(0, msg="common_msg.action_error")
+        except Exception as e:
+            print(f"get Equip Item exception, details as below :\n{str(e)}")
+            res = codeStatus(-1, msg=str(e))
+        return JsonResponse(res)
+
+class UploadImage(View):
+
+    def __init__(self, *args, **kwargs):
+        print("run api : upload shop image")
+
+    def post(self, request):
+        try:
+            databytes = request.FILES['data'].read()
+            data = json.loads(databytes.decode("utf-8"))
+            # print(data)
+            status, err = checkDataParam(data, check_list=["type", "upload_name", "cloud_source"])
+            if not status: 
+                return JsonResponse(codeStatus(0, msg=err))
+
+            if data["upload_name"]:
+                cloud_info_data = json.loads(models.DictionarySetting.objects.get(keystr="Cloud-storage_info").jsonvalue)
+                controller = cloud_info_data["controller"][data["cloud_source"]]
+                cloud_info = cloud_info_data[data["cloud_source"]]
+                cloud_info.update({
+                    "bucket_name":"opms-shop-manage",
+                    "path":f"shop_manage/{data['shop_id']}/",
+                })
+
+                if data["type"]=="delete":
+
+                    cloud_info["filename"] = data["upload_name"]
+                    delete_response = getInstanceMethod(params={ "cloud_info":cloud_info }, module_infos=controller, method=controller["delete"])
+                    # print(f"update image delete {data['cloud_source']} file response : {delete_response}")
+                    if delete_response["code"]!=1: 
+                        return JsonResponse(delete_response)
+
+                elif data["type"]=="create":
+                    file_type = data["upload_name"].split(".")[1]
+                    filename = f"SHOP_{datetime.datetime.today().strftime('%Y%m%d')}_{generateToken()}.{file_type}"
+                    cloud_info["filename"] = filename
+
+                    params = {
+                        "cloud_info":cloud_info,
+                        "upload_file":request.FILES["file"]
+                    }
+
+                    upload_response = getInstanceMethod(params=params, module_infos=controller, method=controller["upload"])
+                    # print(f"update image upload {data['cloud_source']} file response : {upload_response}")
+                    if upload_response["code"]!=1: 
+                        return JsonResponse(upload_response)
+                    res = codeStatus(1, msg="common_msg.save_ok")
+                    # print(f"update Image final response : {res}")
+                    return JsonResponse({"code":1,"msg":'commonmsg.save_ok',"upload_name":f"{filename}"})
+
+                else:
+                    # print("Invalid Type")
+                    JsonResponse(codeStatus(0, msg=f"Invalid Type"))
+            res = codeStatus(1, msg="common_msg.save_ok")
+
+        except Exception as e:
+            print(f"update Image exception, details as below : \n{str(e)}")
+            res = codeStatus(-1, msg=str(e))
+
+        # print(f"update Image final response : {res}")
+        return JsonResponse(res)

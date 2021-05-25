@@ -38,9 +38,10 @@ class API_CALL_View(View):
        
         try:
             row = models.EquipImages.objects.filter(id=order_id)
-           
-            if row.count() and row[0].file_bytes_str:                
+            
+            if row.count() and row[0].file_bytes_str:     
                 image_data = base64.b64decode(row[0].file_bytes_str)
+                print("OK")
                 return HttpResponse(image_data, content_type='image/jpeg')
             HttpResponse(html_content)    
         except Exception as ex:

@@ -62,6 +62,6 @@ urlpatterns = [
 
     url('v1/equip/get_list',equipment.EquipmentsList.as_view()), 
     url('v1/equip/update',equipment.UpdateEquipments.as_view()), 
-
+    url('v1/equip/items/get_list',equipment.EquipItemsList.as_view()), 
 ]
 
