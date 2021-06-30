@@ -45,7 +45,7 @@ class EquipmentsList(View):
                 where_condition = f"where {filter_data[item]}" if not where_condition else f"{where_condition} and {filter_data[item]}"
         
         query = f"""
-            SELECT E.id id,E.name name,E.cate_id cate_id, C.whole_name cate_name,IFNULL(S.is_lend,0) is_lend,IFNULL(S.is_return,0) is_return,IFNULL(S.is_broke,0) is_broke,IFNULL(S.inhand,0) inhand
+            SELECT E.id id,E.name name,E.cate_id cate_id,E.image_name image_name,E.image_full_path image_full_path, C.whole_name cate_name,IFNULL(S.is_lend,0) is_lend,IFNULL(S.is_return,0) is_return,IFNULL(S.is_broke,0) is_broke,IFNULL(S.inhand,0) inhand
             FROM equipments E
             LEFT OUTER JOIN equip_categories C ON C.id = E.cate_id
             LEFT OUTER JOIN (SELECT equip_id,sum(is_lend) is_lend,sum(is_return) is_return,sum(is_broke) is_broke,count(equip_id) inhand FROM equip_items GROUP BY equip_id) S ON S.equip_id = E.id
@@ -87,6 +87,10 @@ class UpdateEquipments(View):
 
     def popFormKey(self, form):
         form.pop("cate_name", None)
+        form.pop("is_lend", None)
+        form.pop("is_return", None)
+        form.pop("is_broke", None)
+        form.pop("inhand", None)
         return form
 
     def verifyField(self, Model, form, filter_dict, action=""):
@@ -113,6 +117,9 @@ class UpdateEquipments(View):
             res = codeStatus(0, msg="common_msg.action_error")
         return res
 
+    def handleRemoveImage(self,org_image_path):
+        if os.path.exists(org_image_path):
+            os.remove(org_image_path)
 
     def actionCreate(self, Model, form, trigger, request):
         print("action : create")
@@ -121,6 +128,7 @@ class UpdateEquipments(View):
         
         if not verify_response["code"]: return verify_response
         try:
+            form["id"] = getUUID()
             form["created_at"] = trigger
             form["updated_at"] = trigger
             res = codeStatus(1, msg="common_msg.save_ok")
@@ -144,9 +152,12 @@ class UpdateEquipments(View):
 
             duplicate_response = self.checkDuplicate(Model, form)
             if not duplicate_response["code"]: return duplicate_response
+            
+            compare = Model.filter(**filter_dict).get()
+            if compare.image_name != form["image_name"]:
+                self.handleRemoveImage(compare.image_full_path)
 
-            new_whole_name = self.genWholeName(Model,form)
-            self.updateWholeName(Model,form,new_whole_name)
+
             form = self.popFormKey(form)
             form["updated_at"] = trigger
             res = codeStatus(1, msg="common_msg.save_ok")
@@ -163,7 +174,11 @@ class UpdateEquipments(View):
         print("action : delete")
         try:
             filter_dict = {"id":form["id"]}
-            Model.filter(**filter_dict).delete()
+            data = Model.filter(**filter_dict)
+            row = data.get()
+            if row.image_full_path:
+                self.handleRemoveImage(row.image_full_path)
+            data.delete()
             res = codeStatus(1, msg="common_msg.delete_ok")
         except ErrorWithCode as e:
             res = codeStatus(e.code, msg=e.msg)
@@ -182,11 +197,13 @@ class UpdateEquipments(View):
             form = data["form"]
             status, err = checkDataParam(form, check_list=[])
             if not status: return JsonResponse(codeStatus(0, msg=err))
-            personDailyJobs = models.Equipments.objects
+            print(form)
+            # return JsonResponse(codeStatus(1, msg="OK"))
+            equipments = models.Equipments.objects
             trigger = datetime.now(tz=timezone.utc)
             print(f"action{data['action'].title()}")
             try:
-                res = getattr(self, f"action{data['action'].title()}")(personDailyJobs, form, trigger, request)
+                res = getattr(self, f"action{data['action'].title()}")(equipments, form, trigger, request)
             except Exception as e:
                 print(str(e))
                 res = codeStatus(0, msg="common_msg.action_error")
@@ -196,31 +213,15 @@ class UpdateEquipments(View):
             res = codeStatus(-1, msg=str(e))
         return JsonResponse(res)
 
-class EquipItemsList(View):
-    def __init__(self, *args, **kwargs):
-        print("run api : get Equipments list")
 
-   
-    def actionItems(self, data):
-        res = codeStatus(1, msg="")
-        equip_items = list(models.EquipItems.objects.filter(equip_id=data["id"]).values("id","equip_id","order","status","buy_date","end_date"))
-        res["equip_items"] = equip_items
-        return res
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
 
-    def post(self, request):
-        try:
-            data = json.loads(request.body)
-            status, err = checkDataParam(data, check_list=["action","id"])
-            if not status: return JsonResponse(codeStatus(0, msg=err))
-            try:
-                res = getattr(self, f"action{data['action'].title()}")(data)
-            except Exception as e:
-                print(str(e))
-                res = codeStatus(0, msg="common_msg.action_error")
-        except Exception as e:
-            print(f"get Equip Item exception, details as below :\n{str(e)}")
-            res = codeStatus(-1, msg=str(e))
-        return JsonResponse(res)
+def generateImgName(list, prefix,attach):
+    name = f"{str(uuid.uuid4()).upper()[0:8]}-{prefix}{attach}"
+    while name in list:
+        name = f"{str(uuid.uuid4()).upper()[0:8]}-{prefix}{attach}"
+    return name
 
 class UploadImage(View):
 
@@ -231,54 +232,33 @@ class UploadImage(View):
         try:
             databytes = request.FILES['data'].read()
             data = json.loads(databytes.decode("utf-8"))
-            # print(data)
-            status, err = checkDataParam(data, check_list=["type", "upload_name", "cloud_source"])
-            if not status: 
-                return JsonResponse(codeStatus(0, msg=err))
+            print(data)
+            try:
+                file = request.FILES['file']
+                max_size = 2097152
+                if file.size > max_size :
+                    return JsonResponse(codeStatus(-1, msg="每張圖片不得超過 2 MB"))
+                fileattach = str(file)[str(file).rfind('.'):]  
+                if not os.path.exists('media/equipments/'):
+                    os.makedirs('media/equipments/') 
+                compare_list = os.listdir('media/equipments/')
+                prefix = data["equip_name"] if "equip_name" in data else "equipment"
+                imgName = generateImgName(compare_list, prefix , fileattach)
+                path = default_storage.save('equipments/'+imgName, ContentFile(file.read()))
+                print(path)
+                res = codeStatus(1, msg="成功上傳圖片")
+                res['image_name'] = imgName
+                res['image_full_path'] = f'media/equipments/{imgName}'
+                print(res)
+                return JsonResponse(res)
 
-            if data["upload_name"]:
-                cloud_info_data = json.loads(models.DictionarySetting.objects.get(keystr="Cloud-storage_info").jsonvalue)
-                controller = cloud_info_data["controller"][data["cloud_source"]]
-                cloud_info = cloud_info_data[data["cloud_source"]]
-                cloud_info.update({
-                    "bucket_name":"opms-shop-manage",
-                    "path":f"shop_manage/{data['shop_id']}/",
-                })
-
-                if data["type"]=="delete":
-
-                    cloud_info["filename"] = data["upload_name"]
-                    delete_response = getInstanceMethod(params={ "cloud_info":cloud_info }, module_infos=controller, method=controller["delete"])
-                    # print(f"update image delete {data['cloud_source']} file response : {delete_response}")
-                    if delete_response["code"]!=1: 
-                        return JsonResponse(delete_response)
-
-                elif data["type"]=="create":
-                    file_type = data["upload_name"].split(".")[1]
-                    filename = f"SHOP_{datetime.datetime.today().strftime('%Y%m%d')}_{generateToken()}.{file_type}"
-                    cloud_info["filename"] = filename
-
-                    params = {
-                        "cloud_info":cloud_info,
-                        "upload_file":request.FILES["file"]
-                    }
-
-                    upload_response = getInstanceMethod(params=params, module_infos=controller, method=controller["upload"])
-                    # print(f"update image upload {data['cloud_source']} file response : {upload_response}")
-                    if upload_response["code"]!=1: 
-                        return JsonResponse(upload_response)
-                    res = codeStatus(1, msg="common_msg.save_ok")
-                    # print(f"update Image final response : {res}")
-                    return JsonResponse({"code":1,"msg":'commonmsg.save_ok',"upload_name":f"{filename}"})
-
-                else:
-                    # print("Invalid Type")
-                    JsonResponse(codeStatus(0, msg=f"Invalid Type"))
+            except Exception as e:
+                print(str(e))
+                return JsonResponse(codeStatus(0, msg="未選擇圖片上傳"))
             res = codeStatus(1, msg="common_msg.save_ok")
 
         except Exception as e:
             print(f"update Image exception, details as below : \n{str(e)}")
             res = codeStatus(-1, msg=str(e))
 
-        # print(f"update Image final response : {res}")
         return JsonResponse(res)

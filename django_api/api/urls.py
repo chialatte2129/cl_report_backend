@@ -30,6 +30,7 @@ from api.image_service import equip_image
 
 from api.equipment import equip_categories
 from api.equipment import equipment
+from api.equipment import equip_items
 
 #路徑以"/版本/api名稱(小寫+底線)" 表示
 urlpatterns = [
@@ -62,6 +63,10 @@ urlpatterns = [
 
     url('v1/equip/get_list',equipment.EquipmentsList.as_view()), 
     url('v1/equip/update',equipment.UpdateEquipments.as_view()), 
-    url('v1/equip/items/get_list',equipment.EquipItemsList.as_view()), 
+
+    url('v1/equip/items/get_list',equip_items.EquipItemsList.as_view()), 
+    url('v1/equip/items/update',equip_items.UpdateEquipItems.as_view()), 
+
+    url('v1/equip/upload/image',equipment.UploadImage.as_view()), 
 ]
 

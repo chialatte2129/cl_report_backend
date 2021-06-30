@@ -104,6 +104,9 @@ class EquipItems(models.Model):
     last_return_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(blank=True, null=True)
     updated_at = models.DateTimeField(blank=True, null=True)
+    is_lend = models.IntegerField(blank=True, null=True)
+    is_return = models.IntegerField(blank=True, null=True)
+    is_broke = models.IntegerField(blank=True, null=True)
     description = models.TextField(blank=True, null=True)
 
     class Meta:
@@ -117,6 +120,8 @@ class Equipments(models.Model):
     cate = models.ForeignKey(EquipCategories, models.DO_NOTHING)
     created_at = models.DateTimeField(blank=True, null=True)
     updated_at = models.DateTimeField(blank=True, null=True)
+    image_name = models.TextField(blank=True, null=True)
+    image_full_path = models.TextField(blank=True, null=True)
 
     class Meta:
         managed = False

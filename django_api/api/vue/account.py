@@ -94,18 +94,18 @@ class API_VUE_Login(View):
                     'msg_i18n':'account.name_and_pass_not_match'
                 }
 
-            res={
-                'msg_code':1,
-                'msg':'success',
-                'data':{
-                    'token':tk.key,
-                    'username':user.username,
-                    'account_id':user.id,
-                    'user_full_name':user.get_full_name(),
-                    'user_menus':user_menus,
-                    'is_admin':user.is_superuser
-                }
-            }
+            # res={
+            #     'msg_code':1,
+            #     'msg':'success',
+            #     'data':{
+            #         'token':tk.key,
+            #         'username':user.username,
+            #         'account_id':user.id,
+            #         'user_full_name':user.get_full_name(),
+            #         'user_menus':user_menus,
+            #         'is_admin':user.is_superuser
+            #     }
+            # }
             return JsonResponse(res)
         except Exception as e:
             res={'msg_code':-1,'msg':str(e)}
