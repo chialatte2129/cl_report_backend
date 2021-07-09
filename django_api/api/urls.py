@@ -32,6 +32,8 @@ from api.equipment import equip_categories
 from api.equipment import equipment
 from api.equipment import equip_items
 
+from api.meeting import meet_entry
+
 #路徑以"/版本/api名稱(小寫+底線)" 表示
 urlpatterns = [
    
@@ -68,5 +70,8 @@ urlpatterns = [
     url('v1/equip/items/update',equip_items.UpdateEquipItems.as_view()), 
 
     url('v1/equip/upload/image',equipment.UploadImage.as_view()), 
+
+    url('v1/meet/entry/list',meet_entry.MeetingEntryList.as_view()), 
+    url('v1/meet/entry/update',meet_entry.UpdateMeetingEntry.as_view()), 
 ]
 

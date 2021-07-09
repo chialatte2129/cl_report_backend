@@ -126,3 +126,15 @@ class Equipments(models.Model):
     class Meta:
         managed = False
         db_table = 'equipments'
+
+class MeetingEntries(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    church_id = models.CharField(unique=True, max_length=100)
+    church_name = models.CharField(unique=True, max_length=100)
+    content = models.TextField()
+    created_at = models.DateTimeField(blank=True, null=True)
+    updated_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'meeting_entries'
