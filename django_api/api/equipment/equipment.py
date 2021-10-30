@@ -5,6 +5,8 @@ from django.views import View
 from django.db import connection, connections
 from django.utils import timezone
 from django.db.models import Q, F, Avg, Max, Min
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
 import requests, json, pytz, ast, re, base64, uuid
 from datetime import datetime, timedelta
 from api.share_functions.tools import *
@@ -118,8 +120,11 @@ class UpdateEquipments(View):
         return res
 
     def handleRemoveImage(self,org_image_path):
-        if os.path.exists(org_image_path):
-            os.remove(org_image_path)
+        if org_image_path:
+            if os.path.exists(org_image_path):
+                os.remove(org_image_path)
+
+        return
 
     def actionCreate(self, Model, form, trigger, request):
         print("action : create")
@@ -147,6 +152,7 @@ class UpdateEquipments(View):
         print("action : update")
         try:
             filter_dict = {"id":form["id"]}
+            print(form)
             verify_response = self.verifyField(Model, form, filter_dict)
             if not verify_response["code"]: return verify_response
 
@@ -154,9 +160,10 @@ class UpdateEquipments(View):
             if not duplicate_response["code"]: return duplicate_response
             
             compare = Model.filter(**filter_dict).get()
+            print(compare.image_full_path)
             if compare.image_name != form["image_name"]:
                 self.handleRemoveImage(compare.image_full_path)
-
+            print("GPOGOGO")
 
             form = self.popFormKey(form)
             form["updated_at"] = trigger
@@ -214,8 +221,6 @@ class UpdateEquipments(View):
         return JsonResponse(res)
 
 
-from django.core.files.storage import default_storage
-from django.core.files.base import ContentFile
 
 def generateImgName(list, prefix,attach):
     name = f"{str(uuid.uuid4()).upper()[0:8]}-{prefix}{attach}"

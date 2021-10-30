@@ -9,6 +9,7 @@ import requests, json, pytz, ast, re, base64, uuid
 from datetime import datetime, timedelta
 from api.share_functions.tools import *
 from api import models
+from api.models import EquipCategories
 import uuid
 
 def getTableAndTotal(query, query_total=""):
@@ -75,6 +76,17 @@ class EquipCategoriesList(View):
             res = codeStatus(-1, msg=str(e))
         return JsonResponse(res)
 
+def get_whole_name(name, parent_id, all_equip):
+    if parent_id==None:
+        return name
+    if len(name.split("/")) > 10:
+        return name
+    parent_odject = all_equip.get(id=int(parent_id))
+    name = f"{parent_odject.name}/{name}"
+    print(parent_odject.parent_id)
+    if parent_odject.parent_id!=None:
+        name = get_whole_name(name, parent_odject.parent_id, all_equip)
+    return name
 
 class UpdateEquipCategory(View):
     def __init__(self, *args, **kwargs):
@@ -97,27 +109,16 @@ class UpdateEquipCategory(View):
             res = codeStatus(0, msg="common_msg.action_error")
         return res
     
-    def updateWholeName(self,Model,form,new_whole_name):
-        print("gen Whole Name")
-        check_rows = Model.exclude(id=form["id"])
-        org_whole_name = Model.get(id=form["id"]).whole_name
-        rename_row = check_rows.filter(whole_name__startswith=org_whole_name)
-        for row in rename_row:
-            row.whole_name = row.whole_name.replace(org_whole_name,new_whole_name)
-            row.save()
-        return new_whole_name
-
-    def genWholeName(self,Model,form):
-        print("gen Whole Name")        
-        if form["parent_id"]:
-            prefix_name = Model.get(id=form["parent_id"]).whole_name
-            connect_sign = "/"
-        else:
-            prefix_name = ""
-            connect_sign = ""
-        new_whole_name = f"{prefix_name}{connect_sign}{form['name']}"
-        return new_whole_name
-
+    def updateWholeName(self):
+        print("update whole name")
+        all_equip = EquipCategories.objects.all()
+        for equip_object in all_equip:
+            whole_name = get_whole_name(equip_object.name , equip_object.parent_id ,all_equip) 
+            print(whole_name)
+            equip_object.whole_name = whole_name
+            equip_object.save()
+        return True
+        
     def checkDuplicate(self,Model,form):
         try:
             check_rows = Model.exclude(id=form["id"]) if "id" in form else  Model
@@ -126,12 +127,11 @@ class UpdateEquipCategory(View):
                 res = codeStatus(0, msg="重複的類別設定")
             else:
                 res = codeStatus(1)
+
         except ErrorWithCode as e:
-            res = codeStatus(e.code, msg=e.msg)
-        except:
+            print(str(e))
             res = codeStatus(0, msg="common_msg.action_error")
         return res
-
 
     def actionCreate(self, Model, form, trigger, request):
         print("action : create")
@@ -139,19 +139,21 @@ class UpdateEquipCategory(View):
         verify_response = self.verifyField(Model, form, filter_dict, "create")
         
         if not verify_response["code"]: return verify_response
+
         try:
-            new_whole_name = self.genWholeName(Model,form)
-            form["whole_name"] = new_whole_name
+            if not form["parent_id"]:
+                form["parent_id"] = None
+            form["whole_name"] = ""
             form["created_at"] = trigger
             form["updated_at"] = trigger
             res = codeStatus(1, msg="common_msg.save_ok")
             row = Model.create(**form)
 
-        except ErrorWithCode as e:
-            res = codeStatus(e.code, msg=e.msg)
+            self.updateWholeName()
+
         except Exception as e:
             print(f"update Equip Categories [create] exception, details as below :\n{str(e)}")
-            res = codeStatus(0, msg="common_msg.action_error")
+            res = codeStatus(-1, msg="common_msg.action_error")
         return res
 
     
@@ -163,22 +165,24 @@ class UpdateEquipCategory(View):
             verify_response = self.verifyField(Model, form, filter_dict)
             if not verify_response["code"]: return verify_response
 
+            if not form["parent_id"]:
+                form["parent_id"] = None
+
             duplicate_response = self.checkDuplicate(Model, form)
             if not duplicate_response["code"]: return duplicate_response
 
-            new_whole_name = self.genWholeName(Model,form)
-            self.updateWholeName(Model,form,new_whole_name)
-            # form = self.popFormKey(form)
-            form["whole_name"] = new_whole_name
+            form["whole_name"] = ""
             form["updated_at"] = trigger
             res = codeStatus(1, msg="common_msg.save_ok")
+            
             Model.filter(**filter_dict).update(**form)
 
-        except ErrorWithCode as e:
-            res = codeStatus(e.code, msg=e.msg)
+            self.updateWholeName()
+            print("OK")
+
         except Exception as e:
             print(f"update Equip categories [update] exception, details as below :\n{str(e)}")
-            res = codeStatus(0, msg="common_msg.action_error")
+            res = codeStatus(-1, msg="common_msg.action_error")
         return res
 
     def actionDelete(self, Model, form, trigger, request):
@@ -187,12 +191,10 @@ class UpdateEquipCategory(View):
             filter_dict = {"id":form["id"]}
             Model.filter(**filter_dict).delete()
             res = codeStatus(1, msg="common_msg.delete_ok")
-        except ErrorWithCode as e:
-            res = codeStatus(e.code, msg=e.msg)
 
         except Exception as e:
             print(f"update Equip Categories [delete] exception, details as below :\n{str(e)}")
-            res = codeStatus(0, msg="common_msg.action_error")
+            res = codeStatus(-1, msg="common_msg.action_error")
         return res
 
     def post(self, request):
